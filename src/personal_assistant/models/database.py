@@ -11,7 +11,7 @@ class DocumentEmbedding(Base):
     document_id = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     embedding = Column("vector", nullable=False)  # pgvector type
-    metadata = Column(JSONB)
+    doc_metadata = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 class Conversation(Base):

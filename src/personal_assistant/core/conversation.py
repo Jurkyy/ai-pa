@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Literal, Optional, Union
+from typing import List, Dict, Any, Literal, Optional, Union, Callable, Awaitable
 from pydantic import BaseModel, Field
 import json
 from .llm import BaseLLM, get_llm # Import LLM base and factory
@@ -47,10 +47,36 @@ class ConversationHandler:
     # Accept LLM, optionally pre-configure integrations
     def __init__(self, llm: BaseLLM):
         self.llm = llm
+        # Registry for intent handlers added dynamically via decorator
+        self.intent_handlers: Dict[str, Callable[[Any, Session, List[Dict[str, str]]], Awaitable[Dict[str, Any]]]] = {}
+
         # Integrations can be initialized here or lazily in handlers
         # TODO: Make integrations configurable/pluggable
-        self.email_integration = EmailIntegration()
+
+        # Prepare email config from global settings
+        # Ensure your settings object has these keys populated (e.g., via environment variables)
+        email_config = {
+            "imap_server": settings.EMAIL_IMAP_SERVER,
+            "smtp_server": settings.EMAIL_SMTP_SERVER,
+            "smtp_port": settings.EMAIL_SMTP_PORT,
+            "email": settings.EMAIL_ADDRESS,
+            "password": settings.EMAIL_PASSWORD,
+            # Add any other config keys EmailIntegration might need
+        }
+        # Pass the configuration dictionary
+        self.email_integration = EmailIntegration(config=email_config)
+
         # self.calendar_integration = CalendarIntegration() # etc.
+
+    # --- Decorator for registering intent handlers ---
+    def register_intent(self, intent_name: str):
+        """Decorator factory to register a handler function for a specific intent."""
+        def decorator(func: Callable[[Any, Session, List[Dict[str, str]]], Awaitable[Dict[str, Any]]]):
+            print(f"Registering handler for intent: {intent_name}")
+            self.intent_handlers[intent_name] = func
+            # Return the original function in case it's needed elsewhere
+            return func
+        return decorator
 
     async def process_message(self, message: str, db: Session, user_id: str) -> Dict[str, Any]:
         """Process a natural language message, determine intent, extract entities, and execute."""
@@ -74,19 +100,27 @@ class ConversationHandler:
         action = structured_output.action
         result = {}
         # Pass history to handlers if they need it
-        if action == "query_rag":
-            result = await self._handle_rag_query(structured_output.query, db, history)
-        elif action == "send_email":
-            result = await self._handle_send_email(structured_output, history)
-        elif action == "schedule_meeting":
-            result = await self._handle_schedule_meeting(structured_output, history)
+        # Look up the handler in the registry
+        handler = self.intent_handlers.get(action)
+
+        if handler:
+            try:
+                # Call the registered handler function
+                # Pass the specific Pydantic model instance, db session, and history
+                print(f"Executing registered handler for action: {action}")
+                result = await handler(structured_output, db, history)
+            except Exception as e:
+                 print(f"Error executing registered handler for action '{action}': {e}")
+                 result = {"error": f"Failed to handle action '{action}'.", "details": str(e)}
+        # Handle actions without specific registered handlers (or as fallbacks)
         elif action == "general_chat":
             result = {"response": structured_output.response}
         elif action == "unknown":
             result = {"response": f"Sorry, I couldn't understand that. Reason: {structured_output.reason}"}
         else:
-            print(f"Error: Unhandled action type: {action}")
-            result = {"error": f"Internal error: Unhandled action type: {action}"}
+            # No handler registered and not a known default action
+            print(f"Error: No handler registered or default logic for action type: {action}")
+            result = {"error": f"Internal error: No handler for action type: {action}"}
 
         # 4. Save the current message and the final result to history
         try:
@@ -191,9 +225,9 @@ JSON Response:
             print(f"Error parsing/validating LLM output: {e}")
             return UnknownOutput(reason=f"Error processing LLM response: {e}")
 
-    async def _handle_rag_query(self, query: str, db: Session, history: List[Dict[str, str]]) -> Dict[str, Any]:
+    async def _handle_rag_query(self, params: RagQueryInput, db: Session, history: List[Dict[str, str]]) -> Dict[str, Any]:
         """Handle RAG queries by searching vector store and synthesizing answer with LLM, considering history."""
-        print(f"Handling RAG query: {query}")
+        print(f"Handling RAG query: {params.query}")
         try:
             # 1. Initialize embeddings and vector store
             if not settings.OPENAI_API_KEY:
@@ -204,7 +238,7 @@ JSON Response:
             vector_store = PostgreSQLVectorStore(db=db, embedding_function=embeddings)
 
             # 2. Search for relevant documents
-            search_results = vector_store.similarity_search(query=query, k=3)
+            search_results = vector_store.similarity_search(query=params.query, k=3)
             print(f"Found {len(search_results)} relevant documents.")
 
             # 3. Construct prompt for LLM synthesis, including history
@@ -228,13 +262,13 @@ Relevant Context from Knowledge Base:
 {context}
 </context>
 
-Based *only* on the conversation history and the provided context from the knowledge base, answer the *latest user question*: "{query}"
+Based *only* on the conversation history and the provided context from the knowledge base, answer the *latest user question*: "{params.query}"
 
 If the context does not contain the necessary information, explicitly state that the answer cannot be found in the knowledge base based on the provided context.
 Do not make up information or use external knowledge beyond the provided history and context.
 
 Answer:"""
-            print(f"Synthesizing answer for query: {query}")
+            print(f"Synthesizing answer for query: {params.query}")
             # 4. Generate response using LLM
             llm_response = await self.llm.generate(synthesis_prompt, max_tokens=1000) # Adjust tokens
             print(f"LLM synthesis response: {llm_response.text}")

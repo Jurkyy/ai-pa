@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import AnyHttpUrl, validator
+from pydantic import AnyHttpUrl, validator, EmailStr
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -30,7 +30,14 @@ class Settings(BaseSettings):
 
     # API Keys, provide these in .env
     ANTHROPIC_API_KEY: Optional[str] = None
-    OPENAI_API_KEY: str = None
+    OPENAI_API_KEY: Optional[str] = None
+
+    # Email Configuration
+    EMAIL_IMAP_SERVER: Optional[str] = None
+    EMAIL_SMTP_SERVER: Optional[str] = None
+    EMAIL_SMTP_PORT: Optional[int] = 587
+    EMAIL_ADDRESS: Optional[EmailStr] = None
+    EMAIL_PASSWORD: Optional[str] = None
 
     # Security
     SECRET_KEY: str = "a_very_secret_key_please_change_me" # Default value, should be overridden in .env
@@ -38,5 +45,6 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+        extra = "allow"  # Allow extra fields
 
 settings = Settings() 
