@@ -1,0 +1,6 @@
+Project Y Meeting Notes
+Date: 2024-03-01
+Attendees: John, Jane
+
+- Discussed progress on feature A
+- Planned next steps for feature B 
