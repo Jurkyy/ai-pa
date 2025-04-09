@@ -5,9 +5,9 @@ FROM python:3.11-slim AS base
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 # Poetry specific environment variables
-ENV POETRY_VERSION=2.1.2 # Pin poetry version for consistency
+ENV POETRY_VERSION=2.1.2 
 ENV POETRY_HOME="/opt/poetry"
-ENV POETRY_VIRTUALENVS_CREATE=false # Don't create virtualenvs inside the container
+ENV POETRY_VIRTUALENVS_CREATE=false
 ENV PATH="$POETRY_HOME/bin:$PATH"
 
 # Install system dependencies (if any - e.g., tesseract if needed later)

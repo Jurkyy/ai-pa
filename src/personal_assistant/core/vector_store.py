@@ -5,7 +5,6 @@ from langchain.embeddings.base import Embeddings
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from personal_assistant.db.session import SessionLocal
-from langchain.embeddings import OpenAIEmbeddings
 
 class PostgreSQLVectorStore(VectorStore):
     """Vector store implementation using PostgreSQL with pgvector."""

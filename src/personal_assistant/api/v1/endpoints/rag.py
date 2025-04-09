@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 # Use the new vector store
 from personal_assistant.core.vector_store import PostgreSQLVectorStore
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from personal_assistant.core.security import get_current_user
 from personal_assistant.core.config import settings
 # Import Session and get_db

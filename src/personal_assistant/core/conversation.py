@@ -6,7 +6,7 @@ from .vector_store import PostgreSQLVectorStore # Needed for RAG
 # Import integrations dynamically or have a registry?
 from ..integrations.email import EmailIntegration # Example integration
 from sqlalchemy.orm import Session # Needed for DB access
-from langchain.embeddings import OpenAIEmbeddings # Needed for RAG embeddings
+from langchain_openai import OpenAIEmbeddings # Needed for RAG embeddings
 from ..core.config import settings # For API keys
 # Import CRUD operations
 from ..crud import crud_conversation
